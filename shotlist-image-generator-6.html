@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shot List → ภาพ</title>
+<style>
+  :root{
+    --bg:#141217;
+    --panel:#1d1a21;
+    --panel2:#242028;
+    --border:#302b36;
+    --text:#efeaf2;
+    --sub:#9d94a8;
+    --accent:#7c5cff;
+    --accent2:#ff7a59;
+    --green:#4caf7d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh;
+    padding:16px 12px 70px;
+  }
+  .wrap{max-width:520px;margin:0 auto;}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.3px;margin:4px 0 2px;}
+  .sub{color:var(--sub);font-size:12.5px;margin-bottom:16px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px;font-weight:600;}
+  input[type=text], input[type=password], textarea, select{
+    width:100%;
+    background:#0f0d12;
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    padding:10px 11px;
+    font-size:14.5px;
+    font-family:inherit;
+    margin-bottom:10px;
+    resize:vertical;
+  }
+  textarea{min-height:90px;}
+  input:focus, textarea:focus, select:focus{outline:none;border-color:var(--accent);}
+  .row{display:flex;gap:8px;margin-bottom:10px;}
+  .row > *{flex:1;}
+  button{
+    padding:12px 14px;
+    border:none;
+    border-radius:12px;
+    background:var(--accent);
+    color:#fff;
+    font-size:14.5px;
+    font-weight:700;
+    cursor:pointer;
+    width:100%;
+  }
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  button.small{width:auto;padding:8px 12px;font-size:13px;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  button:active:not(:disabled){transform:scale(.98);}
+  .projTabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;}
+  .projTab{
+    flex:0 0 auto;
+    padding:8px 13px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--sub);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .projTab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .shotCard{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .shotHead{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .shotTitle{font-size:13.5px;font-weight:700;}
+  .tc{color:var(--accent2);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;}
+  .shotStatus{font-size:11px;color:var(--sub);}
+  .shotStatus.done{color:var(--green);}
+  .shotStatus.error{color:var(--accent2);}
+  .shotImg{
+    width:100%;
+    border-radius:10px;
+    display:block;
+    margin-bottom:8px;
+    background:#0f0d12;
+  }
+  .placeholder{
+    width:100%;
+    aspect-ratio:9/16;
+    border-radius:10px;
+    background:#0f0d12;
+    border:1px dashed var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--sub);
+    font-size:12px;
+    margin-bottom:8px;
+  }
+  .spinner{
+    width:20px;height:20px;
+    border:3px solid var(--border);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .shotBtns{display:flex;gap:8px;}
+  .shotBtns button{flex:1;}
+  .progressBar{
+    height:6px;
+    background:var(--panel2);
+    border-radius:999px;
+    overflow:hidden;
+    margin-bottom:12px;
+  }
+  .progressBar > div{
+    height:100%;
+    background:var(--accent);
+    transition:width .3s;
+  }
+  .empty{color:var(--sub);font-size:13px;text-align:center;padding:20px 0;}
+  .hint{font-size:11px;color:var(--sub);margin:-4px 0 10px;}
+  a.linkhint{color:var(--accent);text-decoration:none;}
+  .fileBtn{
+    display:block;
+    text-align:center;
+    padding:12px 14px;
+    border-radius:12px;
+    background:var(--panel2);
+    color:var(--text);
+    border:1px dashed var(--border);
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+    margin-bottom:6px;
+  }
+  .fileBtn:active{transform:scale(.98);}
+  .dl.disabledLink{opacity:.4;pointer-events:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Shot List → ภาพ</h1>
+  <div class="sub">วางสคริปต์/shot list แล้วให้ AI สร้างภาพทีละฉากอัตโนมัติ (9:16)</div>
+
+  <div class="card">
+    <label>API Key</label>
+    <input type="password" id="apiKey" placeholder="วางคีย์จาก DeepInfra ที่นี่">
+    <div class="hint">ขอคีย์ได้ที่ <a class="linkhint" href="https://deepinfra.com/dash/api_keys" target="_blank">deepinfra.com/dash/api_keys</a> — คีย์ไม่ถูกบันทึกไว้ที่ไหน · ใช้โมเดล FLUX-1-dev</div>
+  </div>
+
+  <div id="projTabs" class="projTabs"></div>
+
+  <div class="card">
+    <label>วางสคริปต์ / Shot List</label>
+    <label class="fileBtn" for="fileInput">📁 อัปโหลดไฟล์สคริปต์ (.txt, .md, .csv, .json, .srt, ...) — เลือกได้หลายไฟล์</label>
+    <input type="file" id="fileInput" accept=".txt,.md,.markdown,.text,.csv,.tsv,.json,.srt,.vtt,.log,.yaml,.yml,.xml,.html,.htm,.rtf,text/plain,text/markdown,text/csv,application/json" multiple onchange="handleFileUpload(event)" style="display:none;">
+    <div id="fileNameHint" class="hint" style="display:none;"></div>
+    <textarea id="scriptInput" placeholder="วางได้ 3 แบบ:
+
+แบบ Shot List หัวข้อ ## SHOT + Image Prompt (EN):
+## SHOT 01 — INTRO
+**Timecode:** 00:00 – 00:07
+**Image Prompt (EN):**
+```
+Vertical 9:16 ... prompt ภาษาอังกฤษ ...
+```
+
+แบบตาราง Markdown (รองรับหลายตาราง/หัวข้อในไฟล์เดียว):
+| TC | Shot | รายละเอียด |
+|---|---|---|
+| 0:00–0:03 | Title card | ตัวหนังสือใหญ่กระแทกจอ |
+
+หรือแบบบรรทัดละฉาก:
+1. [00:00-00:05] ระยะใกล้ ใบหน้าของผู้หญิงมองออกไปนอกหน้าต่างรถไฟ
+2. [00:05-00:10] มุมกว้าง ทิวทัศน์ภูเขาผ่านหน้าต่างรถไฟ
+
+ระบบจะดึง timecode มาโชว์คู่กับภาพให้อัตโนมัติ"></textarea>
+    <button onclick="parseScript()">แยกฉากเป็นรายการภาพ</button>
+  </div>
+
+  <div id="shotsPanel"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const API_BASE = "https://api.deepinfra.com/v1/openai";
+const IMAGE_MODEL = "black-forest-labs/FLUX-1-dev";
+const CONCURRENCY = 3;
+
+let projects = [];
+let currentProjectId = null;
+let projectCounter = 0;
+
+function getApiKey(){
+  return document.getElementById('apiKey').value.trim();
+}
+
+function handleFileUpload(event){
+  const files = Array.from(event.target.files || []);
+  if(files.length === 0) return;
+  const hint = document.getElementById('fileNameHint');
+  hint.style.display = 'block';
+  hint.textContent = 'กำลังอ่านไฟล์ ' + files.length + ' ไฟล์...';
+
+  const readers = files.map(file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, content: String(reader.result || '') });
+    reader.onerror = () => reject(new Error('อ่านไฟล์ "' + file.name + '" ไม่สำเร็จ'));
+    reader.readAsText(file, 'UTF-8');
+  }));
+
+  Promise.all(readers).then(results => {
+    const textarea = document.getElementById('scriptInput');
+    const combined = results.map(r => r.content.trim()).filter(Boolean).join('\n\n');
+    if(!combined){
+      hint.textContent = 'ไฟล์ที่เลือกไม่มีข้อความ หรืออ่านไม่ได้';
+      return;
+    }
+    textarea.value = textarea.value.trim() ? (textarea.value.trim() + '\n\n' + combined) : combined;
+    hint.textContent = '✓ โหลดแล้ว: ' + results.map(r => r.name).join(', ');
+  }).catch(err => {
+    hint.textContent = err.message;
+    alert(err.message);
+  }).finally(() => {
+    event.target.value = '';
+  });
+}
+
+function createProject(shots){
+  projectCounter++;
+  const project = {
+    id: 'p' + projectCounter,
+    name: 'โปรเจกต์ ' + projectCounter,
+    shots: shots
+  };
+  projects.push(project);
+  currentProjectId = project.id;
+  return project;
+}
+
+function getCurrentProject(){
+  return projects.find(p => p.id === currentProjectId);
+}
+
+function extractTimecode(line){
+  // range e.g. [00:00-00:05], (00:00:00 - 00:00:05), 00:00-00:05
+  let m = line.match(/[\[\(]?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–~]\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*[\]\)]?/);
+  if(m) return `${m[1]}-${m[2]}`;
+  // single timecode e.g. [00:00]
+  m = line.match(/[\[\(]\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*[\]\)]/);
+  if(m) return m[1];
+  return null;
+}
+
+function cleanLine(line){
+  let s = line.trim();
+  // remove bracketed or bare timecode ranges e.g. [00:00-00:05], (00:00:00 - 00:00:05), 00:00-00:05
+  s = s.replace(/[\[\(]?\s*\d{1,2}:\d{2}(:\d{2})?\s*[-–~]\s*\d{1,2}:\d{2}(:\d{2})?\s*[\]\)]?/g, '');
+  // remove a single leftover timecode
+  s = s.replace(/[\[\(]?\s*\d{1,2}:\d{2}(:\d{2})?\s*[\]\)]?/g, '');
+  // remove leading scene/shot numbering labels
+  s = s.replace(/^\s*(scene|shot|ฉาก(ที่)?|ช็อต(ที่)?)?\s*#?\d+\s*[\.\):\-]?\s*/i, '');
+  s = s.replace(/\s{2,}/g, ' ').trim();
+  return s;
+}
+
+function isTimecodeStr(s){
+  return /^\d{1,2}:\d{2}(:\d{2})?\s*[-–—~]\s*\d{1,2}:\d{2}(:\d{2})?$/.test(s.trim());
+}
+
+function parseMarkdownTableRows(text){
+  const lines = text.split('\n');
+  const rows = [];
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line.startsWith('|')) continue;
+    // skip separator rows like |---|---|---|
+    if(/^\|?[\s\-:|]+\|?$/.test(line)) continue;
+    let cells = line.split('|').map(c => c.trim());
+    if(cells[0] === '') cells.shift();
+    if(cells[cells.length - 1] === '') cells.pop();
+    if(cells.length < 2) continue;
+    if(!isTimecodeStr(cells[0])) continue; // skips header row like "TC | Shot | รายละเอียด"
+    rows.push(cells);
+  }
+  return rows;
+}
+
+function parseImagePromptFormat(text){
+  // หา "หัวข้อฉาก" แบบยืดหยุ่น: รองรับ ## SHOT, # SHOT, **SHOT**, หรือแม้แต่ SHOT เปล่าๆ
+  // ตามด้วยตัวเลข เช่น "## SHOT 01 — INTRO", "# SHOT 1", "SHOT 01:"
+  // ข้อความก่อนหัวข้อแรก (เช่น ชื่อเรื่อง/สรุป Format) จะไม่ถูกนับเป็นฉากเด็ดขาด
+  const headerRegex = /^[ \t]*(?:#{1,4}|\*{1,2})?[ \t]*SHOT[ \t]*#?\s*\d+[^\n]*$/gim;
+  const headerPositions = [];
+  let hm;
+  while((hm = headerRegex.exec(text)) !== null){
+    headerPositions.push(hm.index);
+  }
+  if(headerPositions.length === 0) return [];
+
+  const shots = [];
+  let idx = 0;
+  for(let i = 0; i < headerPositions.length; i++){
+    const blockStart = headerPositions[i];
+    const blockEnd = (i + 1 < headerPositions.length) ? headerPositions[i + 1] : text.length;
+    const block = text.slice(blockStart, blockEnd);
+
+    // วิธีหลัก: ดึงจากใน code fence หลัง "Image Prompt"
+    let prompt = null;
+    const fencedMatch = block.match(/\*{0,2}\s*Image\s*Prompt[^\n]*\n+```[a-zA-Z]*\s*\n?([\s\S]*?)```/i);
+    if(fencedMatch){
+      prompt = fencedMatch[1].trim();
+    } else {
+      // สำรอง: เผื่อ code fence หายไปหรือปิดไม่สมบูรณ์ (เช่น backtick หลุดตอนวาง)
+      // ให้ดึงข้อความหลัง "Image Prompt" ไปจนกว่าจะเจอหัวข้อ **bold** ถัดไป หรือจบ block
+      const looseMatch = block.match(/Image\s*Prompt[^\n]*\n+([\s\S]*?)(?=\n\s*\*\*[^\n*]+\*\*|\n\s*```|$)/i);
+      if(looseMatch){
+        prompt = looseMatch[1].replace(/```[a-zA-Z]*/g, '').trim();
+      }
+    }
+    if(!prompt) continue;
+
+    const tcMatch = block.match(/\*\*\s*Timecode\s*:?\s*\*\*\s*([^\n]+)/i);
+    const timecode = tcMatch ? tcMatch[1].trim() : extractTimecode(block);
+    idx++;
+    shots.push({
+      index: idx,
+      timecode: timecode,
+      prompt: prompt,
+      status: 'idle',
+      imageUrl: null,
+      taskId: null,
+      error: null
+    });
+  }
+  return shots;
+}
+
+function parseShotList(text){
+  const imagePromptShots = parseImagePromptFormat(text);
+  if(imagePromptShots.length > 0){
+    return imagePromptShots;
+  }
+
+  const tableRows = parseMarkdownTableRows(text);
+  if(tableRows.length > 0){
+    return tableRows.map((cells, i) => {
+      const timecode = cells[0];
+      const prompt = cells.slice(1).join(' — ') || timecode;
+      return {
+        index: i + 1,
+        timecode: timecode,
+        prompt: prompt,
+        status: 'idle',
+        imageUrl: null,
+        taskId: null,
+        error: null
+      };
+    });
+  }
+
+  let blocks = text.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+  if(blocks.length <= 1){
+    blocks = text.split(/\n+/).map(b => b.trim()).filter(Boolean);
+  }
+  return blocks.map((block, i) => {
+    const timecode = extractTimecode(block);
+    const cleaned = cleanLine(block);
+    return {
+      index: i + 1,
+      timecode: timecode,
+      prompt: cleaned || block,
+      status: 'idle', // idle | pending | processing | completed | failed
+      imageUrl: null,
+      taskId: null,
+      error: null
+    };
+  });
+}
+
+function parseScript(){
+  const text = document.getElementById('scriptInput').value;
+  if(!text.trim()){
+    alert('กรุณาวางสคริปต์ก่อน');
+    return;
+  }
+  const shots = parseShotList(text);
+  if(shots.length === 0){
+    alert('ไม่พบฉากในสคริปต์ที่วาง');
+    return;
+  }
+  createProject(shots);
+  document.getElementById('scriptInput').value = '';
+  renderAll();
+}
+
+function newBlankProject(){
+  document.getElementById('scriptInput').value = '';
+  renderProjTabs();
+  document.getElementById('shotsPanel').innerHTML = '<div class="empty">วางสคริปต์ด้านบนแล้วกด "แยกฉากเป็นรายการภาพ" เพื่อเริ่มโปรเจกต์ใหม่</div>';
+}
+
+function switchProject(id){
+  currentProjectId = id;
+  renderAll();
+}
+
+function renderAll(){
+  renderProjTabs();
+  renderShots();
+}
+
+function renderProjTabs(){
+  const el = document.getElementById('projTabs');
+  if(projects.length === 0){
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = projects.map(p => `
+    <div class="projTab ${p.id === currentProjectId ? 'active' : ''}" onclick="switchProject('${p.id}')">${p.name}</div>
+  `).join('') + `<div class="projTab" onclick="newBlankProject(); currentProjectId=null;" style="border-style:dashed;">+ ใหม่</div>`;
+}
+
+function renderShots(){
+  const panel = document.getElementById('shotsPanel');
+  const project = getCurrentProject();
+  if(!project){
+    panel.innerHTML = '<div class="empty">ยังไม่มีโปรเจกต์ วางสคริปต์ด้านบนเพื่อเริ่ม</div>';
+    return;
+  }
+
+  const total = project.shots.length;
+  const done = project.shots.filter(s => s.status === 'completed').length;
+  const anyGenerating = project.shots.some(s => s.status === 'pending' || s.status === 'processing');
+
+  let html = `
+    <div class="card">
+      <div class="row" style="margin-bottom:8px;">
+        <div class="shotTitle" style="flex:2;">${project.name} — ${total} ฉาก</div>
+      </div>
+      <div class="progressBar"><div style="width:${total ? (done/total*100) : 0}%"></div></div>
+      <div class="row">
+        <button onclick="generateAllShots()" ${anyGenerating ? 'disabled' : ''}>
+          ${anyGenerating ? 'กำลังสร้างภาพ...' : (done === total ? 'สร้างใหม่ทั้งหมด' : 'สร้างภาพทั้งหมด')}
+        </button>
+        <button class="secondary" onclick="downloadAllShots('${project.id}', event)" ${done === 0 ? 'disabled' : ''}>
+          ⬇ ดาวน์โหลดทั้งหมด${done ? ' (' + done + ')' : ''}
+        </button>
+      </div>
+    </div>
+  `;
+
+  project.shots.forEach((shot, i) => {
+    let statusLabel = '';
+    let statusClass = '';
+    if(shot.status === 'pending' || shot.status === 'processing'){ statusLabel = 'กำลังสร้าง...'; }
+    else if(shot.status === 'completed'){ statusLabel = 'เสร็จแล้ว'; statusClass = 'done'; }
+    else if(shot.status === 'failed'){ statusLabel = shot.error || 'ล้มเหลว'; statusClass = 'error'; }
+    else { statusLabel = 'ยังไม่ได้สร้าง'; }
+
+    let mediaHtml = '';
+    if(shot.status === 'pending' || shot.status === 'processing'){
+      mediaHtml = `<div class="placeholder"><div class="spinner"></div></div>`;
+    } else if(shot.status === 'completed' && shot.imageUrl){
+      mediaHtml = `<img class="shotImg" src="${shot.imageUrl}" alt="รูปภาพที่ ${shot.index}">`;
+    } else {
+      mediaHtml = `<div class="placeholder">ยังไม่มีภาพ</div>`;
+    }
+
+    html += `
+      <div class="shotCard">
+        <div class="shotHead">
+          <div class="shotTitle">รูปภาพที่ ${shot.index}${shot.timecode ? ` <span class="tc">· ${shot.timecode}</span>` : ''}</div>
+          <div class="shotStatus ${statusClass}">${statusLabel}</div>
+        </div>
+        ${mediaHtml}
+        <textarea id="prompt_${project.id}_${i}" onchange="updatePrompt('${project.id}', ${i}, this.value)">${shot.prompt}</textarea>
+        <div class="shotBtns">
+          <button class="secondary small" onclick="generateSingleShot('${project.id}', ${i})" ${shot.status==='pending'||shot.status==='processing' ? 'disabled' : ''}>
+            ${shot.status === 'completed' || shot.status === 'failed' ? 'สร้างใหม่' : 'สร้างภาพนี้'}
+          </button>
+          ${shot.imageUrl ? `<a class="dl" href="${shot.imageUrl}" target="_blank" download style="flex:1;text-align:center;padding:8px;color:var(--sub);font-size:13px;text-decoration:none;border:1px solid var(--border);border-radius:10px;">ดาวน์โหลด</a>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  panel.innerHTML = html;
+}
+
+function updatePrompt(projectId, shotIdx, value){
+  const project = projects.find(p => p.id === projectId);
+  if(project) project.shots[shotIdx].prompt = value;
+}
+
+async function callImageApi(prompt, apiKey){
+  const res = await fetch(`${API_BASE}/images/generations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      prompt: prompt,
+      size: '768x1344', // อัตราส่วนใกล้เคียง 9:16
+      n: 1,
+      response_format: 'b64_json'
+    })
+  });
+  const data = await res.json();
+  if(!res.ok){
+    throw new Error(data?.error?.message || 'สร้างภาพไม่สำเร็จ');
+  }
+  const item = data?.data && data.data[0];
+  if(!item){
+    throw new Error('ไม่พบภาพในผลลัพธ์');
+  }
+  if(item.url) return item.url;
+  if(item.b64_json) return `data:image/png;base64,${item.b64_json}`;
+  throw new Error('รูปแบบผลลัพธ์ไม่ถูกต้อง');
+}
+
+async function generateSingleShot(projectId, shotIdx){
+  const apiKey = getApiKey();
+  if(!apiKey){ alert('กรุณาใส่ API Key ก่อน'); return; }
+  const project = projects.find(p => p.id === projectId);
+  const shot = project.shots[shotIdx];
+  shot.status = 'processing';
+  shot.error = null;
+  renderShots();
+  try{
+    const url = await callImageApi(shot.prompt, apiKey);
+    shot.imageUrl = url;
+    shot.status = 'completed';
+  }catch(err){
+    shot.status = 'failed';
+    shot.error = err.message;
+  }
+  renderShots();
+}
+
+async function generateAllShots(){
+  const apiKey = getApiKey();
+  if(!apiKey){ alert('กรุณาใส่ API Key ก่อน'); return; }
+  const project = getCurrentProject();
+  if(!project) return;
+
+  const queue = project.shots.map((_, i) => i);
+  project.shots.forEach(s => {
+    if(s.status !== 'completed') s.status = 'pending';
+  });
+  renderShots();
+
+  async function worker(){
+    while(queue.length > 0){
+      const idx = queue.shift();
+      const shot = project.shots[idx];
+      if(shot.status === 'completed') continue;
+      shot.status = 'processing';
+      renderShots();
+      try{
+        const url = await callImageApi(shot.prompt, apiKey);
+        shot.imageUrl = url;
+        shot.status = 'completed';
+      }catch(err){
+        shot.status = 'failed';
+        shot.error = err.message;
+      }
+      renderShots();
+    }
+  }
+
+  const workers = [];
+  for(let i = 0; i < CONCURRENCY; i++){
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+}
+
+async function downloadAllShots(projectId, evt){
+  const project = projects.find(p => p.id === projectId);
+  if(!project) return;
+  const doneShots = project.shots.filter(s => s.status === 'completed' && s.imageUrl);
+  if(doneShots.length === 0){
+    alert('ยังไม่มีภาพที่สร้างเสร็จให้ดาวน์โหลด');
+    return;
+  }
+  if(typeof JSZip === 'undefined'){
+    alert('โหลดตัวช่วยบีบอัดไฟล์ (JSZip) ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+    return;
+  }
+
+  const btn = evt ? evt.currentTarget : null;
+  const originalText = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังเตรียมไฟล์ ZIP...'; }
+
+  try{
+    const zip = new JSZip();
+    let addedCount = 0;
+    for(const shot of doneShots){
+      let blob;
+      try{
+        const res = await fetch(shot.imageUrl);
+        blob = await res.blob();
+      }catch(e){
+        continue; // ข้ามภาพที่ดึงไม่ได้ (เช่นปัญหา CORS ของลิงก์ภายนอก)
+      }
+      const ext = (blob.type && blob.type.includes('jpeg')) ? 'jpg' : 'png';
+      const tcPart = shot.timecode ? '_' + String(shot.timecode).replace(/[^0-9a-zA-Z-]+/g, '') : '';
+      const fileName = `shot_${String(shot.index).padStart(2, '0')}${tcPart}.${ext}`;
+      zip.file(fileName, blob);
+      addedCount++;
+    }
+    if(addedCount === 0){
+      alert('ดาวน์โหลดภาพไม่สำเร็จ อาจติดปัญหา CORS ของลิงก์ภาพภายนอก');
+      return;
+    }
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(project.name || 'project').replace(/\s+/g, '_')}_images.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }catch(err){
+    alert('ดาวน์โหลดทั้งหมดไม่สำเร็จ: ' + err.message);
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = originalText; }
+  }
+}
+
+renderAll();
+</script>
+</body>
+</html>
