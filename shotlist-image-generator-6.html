@@ -310,6 +310,51 @@ function parseMarkdownTableRows(text){
   return rows;
 }
 
+// ดึง "prompt สร้างภาพ" ออกจากบล็อกของฉากหนึ่งๆ แบบมีตัวสำรองหลายชั้น
+// เพื่อให้ได้ prompt ที่มีความหมายเสมอ ไม่ว่าจะจัดรูปแบบมาแบบไหน
+function extractPromptFromBlock(block){
+  let m;
+
+  // 1) วิธีหลัก: code fence ที่อยู่หลังป้ายกำกับ "Image Prompt"
+  m = block.match(/\*{0,2}\s*Image\s*Prompt[^\n]*\n+```[a-zA-Z]*\s*\n?([\s\S]*?)```/i);
+  if(m && m[1].trim()) return m[1].trim();
+
+  // 2) code fence ใดๆ ในบล็อก (ในรูปแบบ shot list ปกติ fence เดียวในบล็อกคือ prompt)
+  //    รองรับกรณีป้าย "Image Prompt" หายไป/เขียนต่างออกไป แต่ยังมี ``` อยู่
+  m = block.match(/```[a-zA-Z]*\s*\n?([\s\S]*?)```/);
+  if(m && m[1].trim()) return m[1].trim();
+
+  // 3) ข้อความหลังป้าย "Image Prompt" (เผื่อ backtick หลุดตอนวาง) จนกว่าจะเจอหัวข้อถัดไป
+  m = block.match(/\*{0,2}\s*Image\s*Prompt[^\n]*[:：]?\s*\n+([\s\S]*?)(?=\n\s*\*\*|\n\s*#{1,4}\s|$)/i);
+  if(m){
+    const p = m[1].replace(/```[a-zA-Z]*/g, '').trim();
+    if(p) return p;
+  }
+
+  // 4) สำรอง: ใช้บรรทัดคำอธิบายภาพภาษาไทย "ภาพ:" ถ้าไม่พบ prompt อังกฤษ
+  m = block.match(/\*{0,2}\s*ภาพ\s*[:：]\s*\*{0,2}\s*([^\n]+)/);
+  if(m && m[1].trim()) return m[1].trim();
+
+  // 5) ทางเลือกสุดท้าย: ตัดบรรทัดหัวข้อ/เมทาดาทา (Timecode, คำพูด ฯลฯ) และเส้นคั่นออก
+  //    แล้วใช้ข้อความที่เหลือ — ดีกว่าปล่อยให้ข้อความ markdown ดิบหลุดเป็น prompt
+  const cleaned = block
+    .split('\n')
+    .slice(1) // ตัดบรรทัดหัวข้อ SHOT ออก
+    .filter(l => {
+      const t = l.trim();
+      if(!t) return false;
+      if(/^[-–—*_=]{3,}$/.test(t)) return false; // เส้นคั่น --- ***
+      if(/^\*{0,2}\s*(Timecode|เวลา|คำพูด|บทพูด|เสียง|Voice\s*over|VO|Narration|Audio)\s*[:：]/i.test(t)) return false;
+      return true;
+    })
+    .join(' ')
+    .replace(/```[a-zA-Z]*/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || block.trim();
+}
+
 function parseImagePromptFormat(text){
   // หา "หัวข้อฉาก" แบบยืดหยุ่น: รองรับ ## SHOT, # SHOT, **SHOT**, หรือแม้แต่ SHOT เปล่าๆ
   // ตามด้วยตัวเลข เช่น "## SHOT 01 — INTRO", "# SHOT 1", "SHOT 01:"
@@ -322,33 +367,20 @@ function parseImagePromptFormat(text){
   }
   if(headerPositions.length === 0) return [];
 
+  // สำคัญ: เมื่อพบหัวข้อ SHOT แล้ว ให้สร้าง "หนึ่งฉากต่อหนึ่งหัวข้อ" เสมอ
+  // และห้าม fall through ไปยังตัวแยกแบบบรรทัดต่อบรรทัด (ซึ่งทำให้ได้ฉากขยะ 50+ ฉาก)
   const shots = [];
-  let idx = 0;
   for(let i = 0; i < headerPositions.length; i++){
     const blockStart = headerPositions[i];
     const blockEnd = (i + 1 < headerPositions.length) ? headerPositions[i + 1] : text.length;
     const block = text.slice(blockStart, blockEnd);
 
-    // วิธีหลัก: ดึงจากใน code fence หลัง "Image Prompt"
-    let prompt = null;
-    const fencedMatch = block.match(/\*{0,2}\s*Image\s*Prompt[^\n]*\n+```[a-zA-Z]*\s*\n?([\s\S]*?)```/i);
-    if(fencedMatch){
-      prompt = fencedMatch[1].trim();
-    } else {
-      // สำรอง: เผื่อ code fence หายไปหรือปิดไม่สมบูรณ์ (เช่น backtick หลุดตอนวาง)
-      // ให้ดึงข้อความหลัง "Image Prompt" ไปจนกว่าจะเจอหัวข้อ **bold** ถัดไป หรือจบ block
-      const looseMatch = block.match(/Image\s*Prompt[^\n]*\n+([\s\S]*?)(?=\n\s*\*\*[^\n*]+\*\*|\n\s*```|$)/i);
-      if(looseMatch){
-        prompt = looseMatch[1].replace(/```[a-zA-Z]*/g, '').trim();
-      }
-    }
-    if(!prompt) continue;
+    const prompt = extractPromptFromBlock(block);
 
     const tcMatch = block.match(/\*\*\s*Timecode\s*:?\s*\*\*\s*([^\n]+)/i);
     const timecode = tcMatch ? tcMatch[1].trim() : extractTimecode(block);
-    idx++;
     shots.push({
-      index: idx,
+      index: i + 1,
       timecode: timecode,
       prompt: prompt,
       status: 'idle',
